@@ -4,7 +4,7 @@ import { operatorFetch } from "../lib/operator.js";
 
 export default defineTool({
   description:
-    "Crea y agenda una reunión en Google Calendar con o sin sala de Google Meet y opción de enviar correo de confirmación al cliente.",
+    "Crea y agenda una reunión en Google Calendar con sala de Google Meet. IMPORTANTE: El correo del cliente (cliente_email) y la confirmación del horario son OBLIGATORIOS. No ejecutar si falta el correo del cliente.",
   inputSchema: z.object({
     titulo: z
       .string()
@@ -31,8 +31,9 @@ export default defineTool({
     cliente_nombre: z.string().describe("Nombre completo del cliente prospecto."),
     cliente_email: z
       .string()
-      .optional()
-      .describe("Correo electrónico del cliente."),
+      .describe(
+        "Correo electrónico OBLIGATORIO del cliente para enviar la invitación y enlace de Google Meet."
+      ),
     cliente_telefono: z
       .string()
       .optional()
@@ -49,6 +50,14 @@ export default defineTool({
       ),
   }),
   async execute(input) {
+    if (!input.cliente_email || !input.cliente_email.includes("@")) {
+      return {
+        success: false,
+        error:
+          "El correo electrónico del cliente es obligatorio para agendar la reunión en Google Calendar. Solicita primero el correo al cliente antes de agendar.",
+      };
+    }
+
     try {
       const data = await operatorFetch("/api/agent/agenda/crear-reunion", {
         method: "POST",
@@ -63,3 +72,4 @@ export default defineTool({
     }
   },
 });
+
