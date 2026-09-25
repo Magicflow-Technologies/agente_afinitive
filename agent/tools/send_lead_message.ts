@@ -4,7 +4,7 @@ import { saveLead } from "../lib/pending_leads.js";
 
 export default defineTool({
   description:
-    "Envía un mensaje de respuesta o confirmación directamente al WhatsApp del cliente/prospecto en nombre de Ricardo o de Afinitive.",
+    "Envía un mensaje de respuesta o confirmación al WhatsApp del cliente/prospecto. USAR ÚNICAMENTE cuando estés conversando con Ricardo (Asistente Ejecutivo) y Ricardo te ordene transmitirle un mensaje a un prospecto. NUNCA USAR esta herramienta si estás atendiendo directamente a un prospecto en su propio chat, pues tu respuesta directa de texto ya se le entrega automáticamente.",
   inputSchema: z.object({
     leadPhone: z
       .string()
@@ -17,6 +17,7 @@ export default defineTool({
         "Mensaje redactado con cortesía, empatía y claridad para el cliente."
       ),
   }),
+
   async execute({ leadPhone, message }) {
     const crmCallbackUrl =
       process.env.CRM_CALLBACK_URL ||

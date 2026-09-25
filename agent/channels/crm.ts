@@ -140,6 +140,16 @@ Ricardo te está consultando o dando instrucciones sobre estos clientes.
 
   events: {
     async "message.completed"(eventData: any, channel: any, ctx: any) {
+      // Ignorar mensajes intermedios cuando el modelo solo está invocando herramientas
+      if (
+        eventData?.finishReason === "tool-calls" ||
+        !eventData?.message ||
+        typeof eventData.message !== "string" ||
+        !eventData.message.trim()
+      ) {
+        return;
+      }
+
       const crmCallbackUrl =
         process.env.CRM_CALLBACK_URL ||
         (process.env.CRM_API_URL
@@ -147,8 +157,8 @@ Ricardo te está consultando o dando instrucciones sobre estos clientes.
           : null);
       const crmApiKey = process.env.CRM_API_KEY;
 
-      // Si el CRM configuró una URL de callback, despachar la respuesta automáticamente
-      if (crmCallbackUrl && eventData?.message) {
+      // Si el CRM configuró una URL de callback, despachar la respuesta final automáticamente
+      if (crmCallbackUrl) {
         try {
           const recipientPhone =
             channel?.continuation?.token || ctx?.session?.id;
@@ -165,7 +175,7 @@ Ricardo te está consultando o dando instrucciones sobre estos clientes.
             headers,
             body: JSON.stringify({
               to: recipientPhone,
-              reply: eventData.message,
+              reply: eventData.message.trim(),
               sessionId: ctx?.session?.id,
             }),
           });
@@ -176,3 +186,4 @@ Ricardo te está consultando o dando instrucciones sobre estos clientes.
     },
   },
 });
+
