@@ -43,14 +43,29 @@ export default defineChannel({
             senderPhone.endsWith(ricardoPhone) ||
             ricardoPhone.endsWith(senderPhone));
 
+        // Obtener la sesión asociada a este número de teléfono
+        const source = from(body.from);
+
+        // Soporte para reiniciar la conversación si se envía /reset o /reiniciar
+        if (
+          body.message === "/reset" ||
+          body.message === "/new" ||
+          body.message === "/reiniciar"
+        ) {
+          await source.reset({ reason: "User requested reset" });
+          return Response.json({
+            success: true,
+            status: "reset",
+            from: body.from,
+            message: "Historial de conversación reiniciado con éxito.",
+          });
+        }
+
         // Formatear el mensaje con contexto si viene nombre del cliente
         let promptMessage = body.message;
         if (body.name && !isRicardo) {
           promptMessage = `[Remitente: ${body.name} (${body.from})]: ${body.message}`;
         }
-
-        // Obtener la sesión asociada a este número de teléfono
-        const source = from(body.from);
 
         const session = await source.send(promptMessage, {
           auth: null,
