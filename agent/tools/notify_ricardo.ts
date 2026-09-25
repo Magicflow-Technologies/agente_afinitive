@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export default defineTool({
   description:
-    "Envía una notificación al WhatsApp de Ricardo usando obligatoriamente la plantilla oficial de Meta ('hello_world') para garantizar la entrega fuera de la ventana de 24h.",
+    "Envía una notificación al WhatsApp de Ricardo usando la plantilla oficial de Meta aprobada ('confirmacin_de_registro_de_inyeccin_en_calendario2026') para garantizar la entrega fuera de la ventana de 24h.",
   inputSchema: z.object({
     leadName: z.string().describe("Nombre del prospecto/cliente."),
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
@@ -20,19 +20,22 @@ export default defineTool({
     templateName: z
       .string()
       .optional()
-      .default("hello_world")
-      .describe("Nombre de la plantilla de Meta (por defecto: 'hello_world')."),
+      .default("confirmacin_de_registro_de_inyeccin_en_calendario2026")
+      .describe(
+        "Nombre de la plantilla de Meta (por defecto: 'confirmacin_de_registro_de_inyeccin_en_calendario2026')."
+      ),
     templateLanguage: z
       .string()
       .optional()
-      .default("en_US")
-      .describe(
-        "Código de idioma de la plantilla (por defecto: 'en_US')."
-      ),
+      .default("es")
+      .describe("Código de idioma de la plantilla (por defecto: 'es')."),
     variables: z
       .array(z.string())
       .optional()
-      .describe("Variables posicionales de la plantilla si las requiere."),
+      .default(["Ricardo"])
+      .describe(
+        "Variables {{1}}, etc. de la plantilla (por defecto: ['Ricardo'])."
+      ),
   }),
   async execute({
     leadName,
@@ -51,17 +54,22 @@ export default defineTool({
         : "https://crm.afinitive.com.pe/api/webhooks/eve-response");
     const crmApiKey = process.env.CRM_API_KEY || "";
 
-    // Payload obligatorio en modo plantilla para cumplir con la política de 24h de Meta
+    const template =
+      templateName ||
+      process.env.RICARDO_NOTIFICATION_TEMPLATE ||
+      "confirmacin_de_registro_de_inyeccin_en_calendario2026";
+    const language = templateLanguage || "es";
+    const templateVars =
+      variables && variables.length > 0 ? variables : ["Ricardo"];
+
+    // Payload en modo plantilla oficial para Meta Cloud API
     const payload: Record<string, any> = {
       to: ricardoPhone,
-      template: templateName || "hello_world",
-      language: templateLanguage || "en_US",
+      template,
+      language,
+      variables: templateVars,
       sessionId: "notif-ricardo",
     };
-
-    if (variables && variables.length > 0) {
-      payload.variables = variables;
-    }
 
     try {
       const headers: Record<string, string> = {
@@ -89,14 +97,14 @@ export default defineTool({
         sentTo: ricardoPhone,
         templateUsed: payload.template,
         language: payload.language,
+        variablesUsed: payload.variables,
         leadContext: {
           name: leadName,
           phone: leadPhone,
           interest: interestSummary,
           slot: proposedSlot,
         },
-        status:
-          "Plantilla oficial 'hello_world' enviada exitosamente a Ricardo vía WhatsApp.",
+        status: `Plantilla oficial '${payload.template}' enviada exitosamente a Ricardo vía WhatsApp.`,
       };
     } catch (error: any) {
       return {
