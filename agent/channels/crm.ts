@@ -1,5 +1,5 @@
 import { defineChannel, POST } from "eve/channels";
-import { getPendingLead } from "../lib/pending_leads.js";
+import { saveLead, getLead, getAllRecentLeads } from "../lib/pending_leads.js";
 
 interface CrmWebhookPayload {
   from: string; // Número de WhatsApp del remitente (ej. +51987654321)
@@ -66,25 +66,48 @@ export default defineChannel({
         let promptMessage = body.message;
 
         if (isRicardo) {
-          const pendingLead = getPendingLead();
-          let leadContext = "";
-          if (pendingLead) {
-            leadContext = `\n\n📌 [CONTEXTO DE LEAD PENDIENTE DE TU CONFIRMACIÓN]:
-- Nombre: ${pendingLead.leadName}
-- Teléfono: ${pendingLead.leadPhone}
-- Interés: ${pendingLead.interestSummary}
-- Horario consultado: ${pendingLead.proposedSlot}
+          const recentLeads = getAllRecentLeads();
+          let leadsContext = "";
+          if (recentLeads.length > 0) {
+            leadsContext = "\n\n📌 [CONTEXTO DE PROSPECTOS/LEADS RECIENTES REGISTRADOS]:\n";
+            recentLeads.slice(0, 3).forEach((lead, idx) => {
+              leadsContext += `--- Lead ${idx + 1} ---
+- Nombre: ${lead.leadName || "No especificado"}
+- Teléfono: ${lead.leadPhone}
+- Correo / Email: ${lead.email || "Aún no registrado"}
+- Interés: ${lead.interestSummary || "No especificado"}
+- Horario consultado: ${lead.proposedSlot || "No especificado"}
+- Último mensaje recibido del cliente: "${lead.lastClientMessage || "Sin mensajes recientes"}"
+- Notas: ${lead.notes || "Ninguna"}
+\n`;
+            });
 
-🚨 INSTRUCCIÓN PARA TI (ASISTENTE EJECUTIVO):
-Ricardo te está respondiendo o dando una instrucción sobre este cliente ("${pendingLead.leadName}").
-1. Si Ricardo confirma, propone otro horario o da una instrucción, usa la herramienta 'send_lead_message' para escribirle de vuelta al cliente con cortesía en nombre de Afinitive/Ricardo.
-2. Si Ricardo aprueba agendar formalmente, usa 'create_operator_meeting'.
-3. Luego, responde directamente a Ricardo confirmándole en un mensaje breve y ejecutivo que ya le respondiste al cliente.`;
+            leadsContext += `🚨 INSTRUCCIÓN PARA TI (ASISTENTE EJECUTIVO):
+Ricardo te está consultando o dando instrucciones sobre estos clientes.
+- Si Ricardo pregunta por los datos o correo de un cliente, responde directamente con la información registrada arriba.
+- Si Ricardo te pide responderle o escribirle al cliente, usa 'send_lead_message'.
+- Si Ricardo aprueba agendar formalmente, usa 'create_operator_meeting'.
+- Responde siempre a Ricardo en tono profesional, ágil y ejecutivo.`;
           }
 
-          promptMessage = `[ROL: ASISTENTE EJECUTIVO DE RICARDO - Mensaje entrante de Ricardo (+51942900456)]: ${body.message}${leadContext}`;
-        } else if (body.name) {
-          promptMessage = `[Remitente: ${body.name} (${body.from})]: ${body.message}`;
+          promptMessage = `[ROL: ASISTENTE EJECUTIVO DE RICARDO - Mensaje entrante de Ricardo (+51942900456)]: ${body.message}${leadsContext}`;
+        } else {
+          // Es un cliente/prospecto general
+          // Detectar si el mensaje contiene un email
+          const emailMatch = body.message.match(
+            /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+          );
+          const detectedEmail = emailMatch ? emailMatch[0] : undefined;
+
+          // Guardar / actualizar en memoria compartida
+          saveLead({
+            leadPhone: body.from,
+            leadName: body.name,
+            email: detectedEmail,
+            lastClientMessage: body.message,
+          });
+
+          promptMessage = `[Remitente Prospecto: ${body.name || "Cliente"} (${body.from})]: ${body.message}`;
         }
 
         const session = await source.send(promptMessage, {
@@ -113,6 +136,7 @@ Ricardo te está respondiendo o dando una instrucción sobre este cliente ("${pe
       }
     }),
   ],
+
 
   events: {
     async "message.completed"(eventData: any, channel: any, ctx: any) {

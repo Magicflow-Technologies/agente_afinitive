@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { clearPendingLead } from "../lib/pending_leads.js";
+import { saveLead } from "../lib/pending_leads.js";
 
 export default defineTool({
   description:
@@ -52,7 +52,11 @@ export default defineTool({
         );
       }
 
-      clearPendingLead();
+      // Guardar el registro de la interacción sin borrar el lead
+      saveLead({
+        leadPhone,
+        notes: `Último mensaje enviado al cliente: ${message}`,
+      });
 
       return {
         success: true,
@@ -68,3 +72,4 @@ export default defineTool({
     }
   },
 });
+
