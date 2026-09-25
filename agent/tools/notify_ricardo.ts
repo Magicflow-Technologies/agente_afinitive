@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export default defineTool({
   description:
-    "Envía una notificación al WhatsApp de Ricardo usando la plantilla oficial de Meta aprobada ('confirmacin_de_registro_de_inyeccin_en_calendario2026' con idioma 'es_PE') para garantizar la entrega fuera de la ventana de 24h.",
+    "Envía una notificación al WhatsApp de Ricardo (+51942900456) informando sobre un nuevo lead calificado mediante la plantilla oficial aprobada en Meta.",
   inputSchema: z.object({
     leadName: z.string().describe("Nombre del prospecto/cliente."),
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
@@ -17,35 +17,8 @@ export default defineTool({
       .describe(
         "Fecha y hora tentativa propuesta para la reunión (ej. 'Viernes 20 a las 10:00 AM')."
       ),
-    templateName: z
-      .string()
-      .optional()
-      .default("confirmacin_de_registro_de_inyeccin_en_calendario2026")
-      .describe(
-        "Nombre de la plantilla de Meta (por defecto: 'confirmacin_de_registro_de_inyeccin_en_calendario2026')."
-      ),
-    templateLanguage: z
-      .string()
-      .optional()
-      .default("es_PE")
-      .describe("Código de idioma de la plantilla (por defecto: 'es_PE')."),
-    variables: z
-      .array(z.string())
-      .optional()
-      .default(["Ricardo"])
-      .describe(
-        "Variables {{1}}, etc. de la plantilla (por defecto: ['Ricardo'])."
-      ),
   }),
-  async execute({
-    leadName,
-    leadPhone,
-    interestSummary,
-    proposedSlot,
-    templateName,
-    templateLanguage,
-    variables,
-  }) {
+  async execute({ leadName, leadPhone, interestSummary, proposedSlot }) {
     const ricardoPhone = process.env.RICARDO_PHONE_NUMBER || "+51942900456";
     const crmCallbackUrl =
       process.env.CRM_CALLBACK_URL ||
@@ -54,20 +27,12 @@ export default defineTool({
         : "https://crm.afinitive.com.pe/api/webhooks/eve-response");
     const crmApiKey = process.env.CRM_API_KEY || "";
 
-    const template =
-      templateName ||
-      process.env.RICARDO_NOTIFICATION_TEMPLATE ||
-      "confirmacin_de_registro_de_inyeccin_en_calendario2026";
-    const language = templateLanguage || "es_PE";
-    const templateVars =
-      variables && variables.length > 0 ? variables : ["Ricardo"];
-
-    // Payload en modo plantilla oficial para Meta Cloud API
-    const payload: Record<string, any> = {
+    // Payload blindado con los valores exactos aprobados en Meta Cloud API
+    const payload = {
       to: ricardoPhone,
-      template,
-      language,
-      variables: templateVars,
+      template: "confirmacin_de_registro_de_inyeccin_en_calendario2026",
+      language: "es_PE",
+      variables: ["Ricardo"],
       sessionId: "notif-ricardo",
     };
 
@@ -97,14 +62,14 @@ export default defineTool({
         sentTo: ricardoPhone,
         templateUsed: payload.template,
         language: payload.language,
-        variablesUsed: payload.variables,
-        leadContext: {
-          name: leadName,
-          phone: leadPhone,
-          interest: interestSummary,
-          slot: proposedSlot,
+        leadSummary: {
+          leadName,
+          leadPhone,
+          interestSummary,
+          proposedSlot,
         },
-        status: `Plantilla oficial '${payload.template}' (${payload.language}) enviada exitosamente a Ricardo vía WhatsApp.`,
+        status:
+          "Notificación enviada exitosamente al WhatsApp de Ricardo mediante plantilla oficial Meta.",
       };
     } catch (error: any) {
       return {
