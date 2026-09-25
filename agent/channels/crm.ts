@@ -9,6 +9,7 @@ interface CrmWebhookPayload {
 }
 
 export default defineChannel({
+  turnPolicy: "queue",
   routes: [
     POST("/api/webhook/crm", async (request, { from, waitUntil }) => {
       try {
@@ -48,20 +49,12 @@ export default defineChannel({
           promptMessage = `[Remitente: ${body.name} (${body.from})]: ${body.message}`;
         }
 
-        // Obtener la sesión asociada a este número de teléfono (usamos body.from exacto para mantener el formato internacional)
+        // Obtener la sesión asociada a este número de teléfono
         const source = from(body.from);
 
         const session = await source.send(promptMessage, {
-          auth: {
-            principalId: body.from,
-            principalType: "user",
-            authenticator: "crm",
-            attributes: {
-              name: body.name || "",
-              leadId: body.leadId || "",
-              isRicardo: String(isRicardo),
-            },
-          },
+          auth: null,
+          turnPolicy: "queue",
         });
 
         return Response.json({
@@ -75,7 +68,8 @@ export default defineChannel({
         console.error("Error en webhook CRM:", error);
         return Response.json(
           {
-            error: error?.message || "Error interno al procesar el mensaje en Eve.",
+            error:
+              error?.message || "Error interno al procesar el mensaje en Eve.",
             details: String(error),
             stack: error?.stack,
           },
@@ -97,7 +91,8 @@ export default defineChannel({
       // Si el CRM configuró una URL de callback, despachar la respuesta automáticamente
       if (crmCallbackUrl && eventData?.message) {
         try {
-          const recipientPhone = channel?.continuation?.token || ctx?.session?.id;
+          const recipientPhone =
+            channel?.continuation?.token || ctx?.session?.id;
 
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
