@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export default defineTool({
   description:
-    "Envía una notificación al WhatsApp de Ricardo usando la plantilla oficial de Meta aprobada ('confirmacin_de_registro_de_inyeccin_en_calendario2026') para garantizar la entrega fuera de la ventana de 24h.",
+    "Envía una notificación al WhatsApp de Ricardo usando la plantilla oficial de Meta aprobada ('confirmacin_de_registro_de_inyeccin_en_calendario2026' con idioma 'es_PE') para garantizar la entrega fuera de la ventana de 24h.",
   inputSchema: z.object({
     leadName: z.string().describe("Nombre del prospecto/cliente."),
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
@@ -27,8 +27,8 @@ export default defineTool({
     templateLanguage: z
       .string()
       .optional()
-      .default("es")
-      .describe("Código de idioma de la plantilla (por defecto: 'es')."),
+      .default("es_PE")
+      .describe("Código de idioma de la plantilla (por defecto: 'es_PE')."),
     variables: z
       .array(z.string())
       .optional()
@@ -58,7 +58,7 @@ export default defineTool({
       templateName ||
       process.env.RICARDO_NOTIFICATION_TEMPLATE ||
       "confirmacin_de_registro_de_inyeccin_en_calendario2026";
-    const language = templateLanguage || "es";
+    const language = templateLanguage || "es_PE";
     const templateVars =
       variables && variables.length > 0 ? variables : ["Ricardo"];
 
@@ -104,7 +104,7 @@ export default defineTool({
           interest: interestSummary,
           slot: proposedSlot,
         },
-        status: `Plantilla oficial '${payload.template}' enviada exitosamente a Ricardo vía WhatsApp.`,
+        status: `Plantilla oficial '${payload.template}' (${payload.language}) enviada exitosamente a Ricardo vía WhatsApp.`,
       };
     } catch (error: any) {
       return {
