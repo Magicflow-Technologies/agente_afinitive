@@ -1,4 +1,5 @@
 import { defineChannel, POST } from "eve/channels";
+import { getPendingLead } from "../lib/pending_leads.js";
 
 interface CrmWebhookPayload {
   from: string; // Número de WhatsApp del remitente (ej. +51987654321)
@@ -61,9 +62,28 @@ export default defineChannel({
           });
         }
 
-        // Formatear el mensaje con contexto si viene nombre del cliente
+        // Formatear el mensaje según el rol
         let promptMessage = body.message;
-        if (body.name && !isRicardo) {
+
+        if (isRicardo) {
+          const pendingLead = getPendingLead();
+          let leadContext = "";
+          if (pendingLead) {
+            leadContext = `\n\n📌 [CONTEXTO DE LEAD PENDIENTE DE TU CONFIRMACIÓN]:
+- Nombre: ${pendingLead.leadName}
+- Teléfono: ${pendingLead.leadPhone}
+- Interés: ${pendingLead.interestSummary}
+- Horario consultado: ${pendingLead.proposedSlot}
+
+🚨 INSTRUCCIÓN PARA TI (ASISTENTE EJECUTIVO):
+Ricardo te está respondiendo o dando una instrucción sobre este cliente ("${pendingLead.leadName}").
+1. Si Ricardo confirma, propone otro horario o da una instrucción, usa la herramienta 'send_lead_message' para escribirle de vuelta al cliente con cortesía en nombre de Afinitive/Ricardo.
+2. Si Ricardo aprueba agendar formalmente, usa 'create_operator_meeting'.
+3. Luego, responde directamente a Ricardo confirmándole en un mensaje breve y ejecutivo que ya le respondiste al cliente.`;
+          }
+
+          promptMessage = `[ROL: ASISTENTE EJECUTIVO DE RICARDO - Mensaje entrante de Ricardo (+51942900456)]: ${body.message}${leadContext}`;
+        } else if (body.name) {
           promptMessage = `[Remitente: ${body.name} (${body.from})]: ${body.message}`;
         }
 
