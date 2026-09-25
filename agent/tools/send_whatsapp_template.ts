@@ -12,21 +12,21 @@ export default defineTool({
       ),
     template: z
       .string()
-      .default("hello_world")
+      .default("confirmacin_de_registro_de_inyeccin_en_calendario2026")
       .describe(
-        "Nombre de la plantilla registrada en Meta (ej. 'hello_world')."
+        "Nombre de la plantilla registrada en Meta (ej. 'confirmacin_de_registro_de_inyeccin_en_calendario2026')."
       ),
     language: z
       .string()
-      .default("en_US")
+      .default("es_PE")
       .describe(
-        "Código de idioma de la plantilla (ej. 'en_US', 'es_LA', 'es')."
+        "Código de idioma de la plantilla (por defecto: 'es_PE')."
       ),
     variables: z
       .array(z.string())
       .optional()
       .describe(
-        "Lista de variables {{1}}, {{2}}, etc. si la plantilla las requiere."
+        "Lista de variables {{1}}, etc. si la plantilla las requiere."
       ),
     sessionId: z.string().optional().describe("ID de sesión o trazabilidad."),
   }),
@@ -40,8 +40,9 @@ export default defineTool({
 
     const payload: Record<string, any> = {
       to,
-      template: template || "hello_world",
-      language: language || "en_US",
+      template:
+        template || "confirmacin_de_registro_de_inyeccin_en_calendario2026",
+      language: language || "es_PE",
       sessionId: sessionId || "template-dispatch",
     };
     if (variables && variables.length > 0) {
@@ -63,8 +64,9 @@ export default defineTool({
       });
 
       if (!response.ok) {
+        const errText = await response.text().catch(() => "");
         throw new Error(
-          `Error al enviar plantilla WhatsApp (${response.status}): ${response.statusText}`
+          `Error en CRM (${response.status}): ${errText || response.statusText}`
         );
       }
 
