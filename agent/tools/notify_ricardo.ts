@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export default defineTool({
   description:
-    "Envía una notificación al WhatsApp de Ricardo con el resumen del cliente potencial, horario sugerido y las 3 opciones de decisión.",
+    "Envía una notificación al WhatsApp de Ricardo con el resumen del cliente potencial y opciones de decisión. Soporta plantilla de Meta o texto libre.",
   inputSchema: z.object({
     leadName: z.string().describe("Nombre del prospecto/cliente."),
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
@@ -17,8 +17,35 @@ export default defineTool({
       .describe(
         "Fecha y hora tentativa propuesta para la reunión (ej. 'Viernes 20 a las 10:00 AM')."
       ),
+    useTemplate: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        "Si es true, envía el mensaje usando la plantilla oficial de Meta para abrir la ventana de 24h."
+      ),
+    templateName: z
+      .string()
+      .optional()
+      .default("hello_world")
+      .describe("Nombre de la plantilla de Meta (ej. 'hello_world')."),
+    templateLanguage: z
+      .string()
+      .optional()
+      .default("en_US")
+      .describe(
+        "Código de idioma de la plantilla (ej. 'en_US', 'es_LA', 'es')."
+      ),
   }),
-  async execute({ leadName, leadPhone, interestSummary, proposedSlot }) {
+  async execute({
+    leadName,
+    leadPhone,
+    interestSummary,
+    proposedSlot,
+    useTemplate,
+    templateName,
+    templateLanguage,
+  }) {
     const ricardoPhone = process.env.RICARDO_PHONE_NUMBER || "+51942900456";
     const crmCallbackUrl =
       process.env.CRM_CALLBACK_URL ||
@@ -40,6 +67,18 @@ export default defineTool({
       `3️⃣ Escríbeme cualquier instrucción y se la responderé directamente al cliente.`,
     ].join("\n");
 
+    const payload: Record<string, any> = {
+      to: ricardoPhone,
+      sessionId: "notif-ricardo",
+    };
+
+    if (useTemplate) {
+      payload.template = templateName || "hello_world";
+      payload.language = templateLanguage || "en_US";
+    } else {
+      payload.reply = notificationMessage;
+    }
+
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -51,11 +90,7 @@ export default defineTool({
       const response = await fetch(crmCallbackUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          to: ricardoPhone,
-          reply: notificationMessage,
-          sessionId: "notif-ricardo",
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -67,6 +102,7 @@ export default defineTool({
       return {
         success: true,
         sentTo: ricardoPhone,
+        mode: useTemplate ? "template" : "direct_reply",
         messageFormatted: notificationMessage,
         status: "Notificación enviada al WhatsApp de Ricardo exitosamente.",
       };
