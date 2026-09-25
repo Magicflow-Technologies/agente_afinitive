@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { operatorFetch } from "../lib/operator.js";
 
 export default defineTool({
   description:
@@ -17,34 +18,12 @@ export default defineTool({
       .describe("Cantidad máxima de leads a consultar (default: 10)."),
   }),
   async execute({ estado, limite }) {
-    const operatorApiBaseUrl =
-      process.env.OPERATOR_API_BASE_URL || "https://api.operador.afinitive.com";
-    const operatorApiKey = process.env.OPERATOR_API_KEY || "";
-
-    const url = new URL("/api/agent/clientes/nuevos", operatorApiBaseUrl);
-    if (estado) url.searchParams.set("estado", estado);
-    if (limite) url.searchParams.set("limite", String(limite));
-
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (operatorApiKey) {
-        headers["Authorization"] = `Bearer ${operatorApiKey}`;
-      }
-
-      const response = await fetch(url.toString(), {
+      const data = await operatorFetch("/api/agent/clientes/nuevos", {
         method: "GET",
-        headers,
+        params: { estado, limite },
       });
-
-      if (!response.ok) {
-        throw new Error(
-          `Error al consultar clientes nuevos en Operador (${response.status}): ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return data;
     } catch (error: any) {
       return {
         success: false,

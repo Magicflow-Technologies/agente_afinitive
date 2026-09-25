@@ -9,14 +9,22 @@ export default defineTool({
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
     interestSummary: z
       .string()
-      .describe("Resumen conciso del interés, evento al que asistió o dudas del cliente."),
+      .describe(
+        "Resumen conciso del interés, evento al que asistió o dudas del cliente."
+      ),
     proposedSlot: z
       .string()
-      .describe("Fecha y hora tentativa propuesta para la reunión (ej. 'Viernes 20 a las 10:00 AM')."),
+      .describe(
+        "Fecha y hora tentativa propuesta para la reunión (ej. 'Viernes 20 a las 10:00 AM')."
+      ),
   }),
   async execute({ leadName, leadPhone, interestSummary, proposedSlot }) {
     const ricardoPhone = process.env.RICARDO_PHONE_NUMBER || "+51942900456";
-    const crmApiUrl = process.env.CRM_API_URL || "";
+    const crmCallbackUrl =
+      process.env.CRM_CALLBACK_URL ||
+      (process.env.CRM_API_URL
+        ? `${process.env.CRM_API_URL.replace(/\/+$/, "")}/api/webhooks/eve-response`
+        : "https://crm.afinitive.com.pe/api/webhooks/eve-response");
     const crmApiKey = process.env.CRM_API_KEY || "";
 
     const notificationMessage = [
@@ -33,25 +41,34 @@ export default defineTool({
     ].join("\n");
 
     try {
-      if (crmApiUrl) {
-        await fetch(`${crmApiUrl}/api/messages/send`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${crmApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: ricardoPhone,
-            message: notificationMessage,
-          }),
-        });
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (crmApiKey) {
+        headers["Authorization"] = `Bearer ${crmApiKey}`;
+      }
+
+      const response = await fetch(crmCallbackUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          to: ricardoPhone,
+          reply: notificationMessage,
+          sessionId: "notif-ricardo",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Error en CRM (${response.status}): ${response.statusText}`
+        );
       }
 
       return {
         success: true,
         sentTo: ricardoPhone,
         messageFormatted: notificationMessage,
-        status: "Notificación enviada a Ricardo exitosamente.",
+        status: "Notificación enviada al WhatsApp de Ricardo exitosamente.",
       };
     } catch (error: any) {
       return {

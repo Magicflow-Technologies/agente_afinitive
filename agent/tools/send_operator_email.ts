@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { operatorFetch } from "../lib/operator.js";
 
 export default defineTool({
   description:
@@ -36,36 +37,12 @@ export default defineTool({
       ),
   }),
   async execute(input) {
-    const operatorApiBaseUrl =
-      process.env.OPERATOR_API_BASE_URL || "https://api.operador.afinitive.com";
-    const operatorApiKey = process.env.OPERATOR_API_KEY || "";
-
-    const url = new URL(
-      "/api/agent/correos/enviar-plantilla",
-      operatorApiBaseUrl
-    );
-
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (operatorApiKey) {
-        headers["Authorization"] = `Bearer ${operatorApiKey}`;
-      }
-
-      const response = await fetch(url.toString(), {
+      const data = await operatorFetch("/api/agent/correos/enviar-plantilla", {
         method: "POST",
-        headers,
-        body: JSON.stringify(input),
+        body: input,
       });
-
-      if (!response.ok) {
-        throw new Error(
-          `Error al enviar correo en Operador (${response.status}): ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return data;
     } catch (error: any) {
       return {
         success: false,
