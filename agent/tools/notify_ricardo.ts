@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export default defineTool({
   description:
-    "Envía una notificación al WhatsApp de Ricardo con el resumen del cliente potencial y opciones de decisión. Soporta plantilla de Meta o texto libre.",
+    "Envía una notificación al WhatsApp de Ricardo usando obligatoriamente la plantilla oficial de Meta ('hello_world') para garantizar la entrega fuera de la ventana de 24h.",
   inputSchema: z.object({
     leadName: z.string().describe("Nombre del prospecto/cliente."),
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
@@ -17,34 +17,31 @@ export default defineTool({
       .describe(
         "Fecha y hora tentativa propuesta para la reunión (ej. 'Viernes 20 a las 10:00 AM')."
       ),
-    useTemplate: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe(
-        "Si es true, envía el mensaje usando la plantilla oficial de Meta para abrir la ventana de 24h."
-      ),
     templateName: z
       .string()
       .optional()
       .default("hello_world")
-      .describe("Nombre de la plantilla de Meta (ej. 'hello_world')."),
+      .describe("Nombre de la plantilla de Meta (por defecto: 'hello_world')."),
     templateLanguage: z
       .string()
       .optional()
       .default("en_US")
       .describe(
-        "Código de idioma de la plantilla (ej. 'en_US', 'es_LA', 'es')."
+        "Código de idioma de la plantilla (por defecto: 'en_US')."
       ),
+    variables: z
+      .array(z.string())
+      .optional()
+      .describe("Variables posicionales de la plantilla si las requiere."),
   }),
   async execute({
     leadName,
     leadPhone,
     interestSummary,
     proposedSlot,
-    useTemplate,
     templateName,
     templateLanguage,
+    variables,
   }) {
     const ricardoPhone = process.env.RICARDO_PHONE_NUMBER || "+51942900456";
     const crmCallbackUrl =
@@ -54,29 +51,16 @@ export default defineTool({
         : "https://crm.afinitive.com.pe/api/webhooks/eve-response");
     const crmApiKey = process.env.CRM_API_KEY || "";
 
-    const notificationMessage = [
-      `🔔 *Nuevo Cliente Potencial Calificado*`,
-      ``,
-      `👤 *Contacto:* ${leadName} (${leadPhone})`,
-      `📌 *Interés:* ${interestSummary}`,
-      `⏰ *Preferencia / Horario Propuesto:* ${proposedSlot}`,
-      ``,
-      `*¿Cómo procedemos?*`,
-      `1️⃣ Responde *'1'* o *'Agendar'* para que yo cierre la reunión con Google Meet y le envíe la confirmación.`,
-      `2️⃣ Responde *'2'* o *'Hablo yo'* si prefieres tomar tú el control del chat.`,
-      `3️⃣ Escríbeme cualquier instrucción y se la responderé directamente al cliente.`,
-    ].join("\n");
-
+    // Payload obligatorio en modo plantilla para cumplir con la política de 24h de Meta
     const payload: Record<string, any> = {
       to: ricardoPhone,
+      template: templateName || "hello_world",
+      language: templateLanguage || "en_US",
       sessionId: "notif-ricardo",
     };
 
-    if (useTemplate) {
-      payload.template = templateName || "hello_world";
-      payload.language = templateLanguage || "en_US";
-    } else {
-      payload.reply = notificationMessage;
+    if (variables && variables.length > 0) {
+      payload.variables = variables;
     }
 
     try {
@@ -94,17 +78,25 @@ export default defineTool({
       });
 
       if (!response.ok) {
+        const errText = await response.text().catch(() => "");
         throw new Error(
-          `Error en CRM (${response.status}): ${response.statusText}`
+          `Error en CRM (${response.status}): ${errText || response.statusText}`
         );
       }
 
       return {
         success: true,
         sentTo: ricardoPhone,
-        mode: useTemplate ? "template" : "direct_reply",
-        messageFormatted: notificationMessage,
-        status: "Notificación enviada al WhatsApp de Ricardo exitosamente.",
+        templateUsed: payload.template,
+        language: payload.language,
+        leadContext: {
+          name: leadName,
+          phone: leadPhone,
+          interest: interestSummary,
+          slot: proposedSlot,
+        },
+        status:
+          "Plantilla oficial 'hello_world' enviada exitosamente a Ricardo vía WhatsApp.",
       };
     } catch (error: any) {
       return {
