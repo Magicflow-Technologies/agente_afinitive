@@ -1,5 +1,7 @@
 import { defineAgent } from "eve";
+import { deepseek } from "@ai-sdk/deepseek";
 
 export default defineAgent({
-  model: "openai/gpt-5.6-luna-fast",
+  model: deepseek("deepseek-chat"),
+  modelContextWindowTokens: 64_000,
 });
