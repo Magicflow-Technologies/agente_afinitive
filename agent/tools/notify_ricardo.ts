@@ -1,9 +1,10 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { getWhatsAppTemplateConfig } from "../lib/templates.js";
 
 export default defineTool({
   description:
-    "Envía una notificación al WhatsApp de Ricardo (+51942900456) informando sobre un nuevo lead calificado mediante la plantilla oficial aprobada en Meta.",
+    "Envía una notificación al WhatsApp de Ricardo (+51942900456) informando sobre un nuevo lead calificado usando la plantilla configurada en el sistema.",
   inputSchema: z.object({
     leadName: z.string().describe("Nombre del prospecto/cliente."),
     leadPhone: z.string().describe("Número de WhatsApp del prospecto."),
@@ -27,12 +28,14 @@ export default defineTool({
         : "https://crm.afinitive.com.pe/api/webhooks/eve-response");
     const crmApiKey = process.env.CRM_API_KEY || "";
 
-    // Payload blindado con los valores exactos aprobados en Meta Cloud API
+    const { templateName, templateLanguage, defaultVariables } =
+      getWhatsAppTemplateConfig();
+
     const payload = {
       to: ricardoPhone,
-      template: "confirmacin_de_registro_de_inyeccin_en_calendario2026",
-      language: "es_PE",
-      variables: ["Ricardo"],
+      template: templateName,
+      language: templateLanguage,
+      variables: defaultVariables,
       sessionId: "notif-ricardo",
     };
 
@@ -68,8 +71,7 @@ export default defineTool({
           interestSummary,
           proposedSlot,
         },
-        status:
-          "Notificación enviada exitosamente al WhatsApp de Ricardo mediante plantilla oficial Meta.",
+        status: `Notificación enviada exitosamente al WhatsApp de Ricardo usando la plantilla '${payload.template}' (${payload.language}).`,
       };
     } catch (error: any) {
       return {

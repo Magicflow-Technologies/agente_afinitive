@@ -1,9 +1,10 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { getWhatsAppTemplateConfig } from "../lib/templates.js";
 
 export default defineTool({
   description:
-    "Envía un mensaje de plantilla oficial de Meta WhatsApp (WhatsApp Template) para iniciar una conversación o contactar a un cliente o administrador fuera de la ventana de 24 horas.",
+    "Envía un mensaje de plantilla oficial de Meta WhatsApp para iniciar una conversación fuera de la ventana de 24 horas.",
   inputSchema: z.object({
     to: z
       .string()
@@ -12,15 +13,15 @@ export default defineTool({
       ),
     template: z
       .string()
-      .default("confirmacin_de_registro_de_inyeccin_en_calendario2026")
+      .optional()
       .describe(
-        "Nombre de la plantilla registrada en Meta (ej. 'confirmacin_de_registro_de_inyeccin_en_calendario2026')."
+        "Nombre de la plantilla de Meta (opcional, usa WHATSAPP_TEMPLATE_NAME por defecto)."
       ),
     language: z
       .string()
-      .default("es_PE")
+      .optional()
       .describe(
-        "Código de idioma de la plantilla (por defecto: 'es_PE')."
+        "Código de idioma de la plantilla (opcional, usa WHATSAPP_TEMPLATE_LANGUAGE por defecto)."
       ),
     variables: z
       .array(z.string())
@@ -38,15 +39,18 @@ export default defineTool({
         : "https://crm.afinitive.com.pe/api/webhooks/eve-response");
     const crmApiKey = process.env.CRM_API_KEY || "";
 
+    const config = getWhatsAppTemplateConfig();
+
     const payload: Record<string, any> = {
       to,
-      template:
-        template || "confirmacin_de_registro_de_inyeccin_en_calendario2026",
-      language: language || "es_PE",
+      template: template || config.templateName,
+      language: language || config.templateLanguage,
       sessionId: sessionId || "template-dispatch",
     };
     if (variables && variables.length > 0) {
       payload.variables = variables;
+    } else if (!template || template === config.templateName) {
+      payload.variables = config.defaultVariables;
     }
 
     try {
@@ -66,7 +70,9 @@ export default defineTool({
       if (!response.ok) {
         const errText = await response.text().catch(() => "");
         throw new Error(
-          `Error en CRM (${response.status}): ${errText || response.statusText}`
+          `Error al enviar plantilla WhatsApp (${response.status}): ${
+            errText || response.statusText
+          }`
         );
       }
 
